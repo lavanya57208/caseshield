@@ -1,0 +1,1141 @@
+// Case Shield — Prisma schema
+// PostgreSQL stores metadata only; document/evidence binaries live in
+// object storage (see docs/architecture.md §6, docs/database.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum CaseStatus {
+  ACTIVE
+  UNDER_REVIEW
+  ON_HOLD
+  CLOSED
+  ARCHIVED
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ConfidentialityLevel {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  HIGHLY_CONFIDENTIAL
+  RESTRICTED
+}
+
+enum DocumentStatus {
+  DRAFT
+  REGISTERED
+  UNDER_REVIEW
+  ARCHIVED
+}
+
+enum IntegrityStatus {
+  VERIFIED
+  VIOLATION
+  UNVERIFIED
+}
+
+// Phase 3 — evidence lifecycle. Transitions are enforced server-side by
+// backend/src/modules/evidence/evidence-lifecycle.ts; the client can only
+// request a custody ACTION, never set a status directly.
+enum EvidenceStatus {
+  REGISTERED
+  IN_CUSTODY
+  UNDER_EXAMINATION
+  TRANSFERRED // transfer initiated, awaiting the recipient's receipt
+  SUBMITTED_TO_COURT
+  RETURNED
+  SEALED
+  ARCHIVED
+}
+
+enum CustodyAction {
+  COLLECTED // legacy (pre-Phase 3) field-collection entry
+  REGISTERED
+  TRANSFERRED
+  RECEIVED
+  TRANSFER_REJECTED
+  TRANSFER_CANCELLED
+  EXAMINED
+  SEALED
+  UNSEALED
+  SUBMITTED
+  RETURNED
+  ARCHIVED
+  VIEWED
+  VERIFIED
+}
+
+enum EvidenceTransferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REVOKED
+}
+
+enum AuditResult {
+  SUCCESS
+  DENIED
+  ERROR
+}
+
+enum NotificationType {
+  ACCESS_REQUESTED
+  ACCESS_APPROVED
+  ACCESS_REJECTED
+  DOCUMENT_UPLOADED
+  DOCUMENT_SHARED
+  EVIDENCE_TRANSFERRED
+  CUSTODY_ACKNOWLEDGED
+  EVIDENCE_TRANSFER_REJECTED
+  INTEGRITY_WARNING
+  SECURITY_ALERT
+  PENDING_ACTION
+}
+
+enum SignatureStatus {
+  NOT_SIGNED
+  PENDING
+  SIGNED
+  SIGNATURE_INVALID
+  SIGNATURE_REVOKED
+}
+
+enum AiJobType {
+  CLASSIFY
+  EXTRACT_METADATA
+  SUMMARIZE
+  OCR
+  SIMILARITY
+  PROCESS_DOCUMENT // Phase 4: full extraction → classification → metadata → PII → index pipeline
+}
+
+enum AiJobStatus {
+  QUEUED
+  RUNNING // legacy (pre-Phase 4) synonym of PROCESSING
+  COMPLETED
+  FAILED
+  PROCESSING
+  PARTIAL
+}
+
+// --- Phase 4: document intelligence ------------------------------------------
+
+enum DocumentProcessingStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum TextExtractionStatus {
+  QUEUED
+  PROCESSING
+  TEXT_EXTRACTED // read from the file's own text layer
+  OCR_PROCESSED // recognized by an OCR provider
+  PARTIAL // some text obtained, some pages/regions could not be read
+  FAILED
+  UNSUPPORTED // file type has no text extraction or OCR path
+  SKIPPED // withheld by policy (e.g. RESTRICTED material is not sent to OCR)
+}
+
+enum TextSource {
+  TEXT_LAYER
+  OCR
+  NONE
+}
+
+enum IntelligenceStepStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum IntelligenceReviewStatus {
+  PENDING_REVIEW
+  CONFIRMED
+  REJECTED
+}
+
+// AI_GENERATED: unreviewed provider output. AI_ASSISTED: a human reviewed
+// and corrected it. HUMAN_CONFIRMED: a human accepted it unchanged.
+enum AiProvenance {
+  AI_GENERATED
+  AI_ASSISTED
+  HUMAN_CONFIRMED
+}
+
+enum SecurityEventType {
+  FAILED_LOGIN
+  SUSPICIOUS_ACCESS
+  INTEGRITY_VIOLATION
+  UNUSUAL_DOWNLOAD
+  PERMISSION_CHANGE
+  EXPIRED_ACCESS
+  POLICY_VIOLATION
+}
+
+enum SecuritySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// --- Phase 2: PII protection, derivatives, controlled sharing -------------
+
+enum PiiScanStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  UNSUPPORTED
+}
+
+enum PiiType {
+  AADHAAR_LIKE
+  PHONE_NUMBER
+  EMAIL_ADDRESS
+  IP_ADDRESS
+  ADDRESS_LIKE
+}
+
+enum PiiConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DerivativeType {
+  REDACTED
+  WATERMARKED
+}
+
+enum DerivativeStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  UNSUPPORTED
+}
+
+enum SharePurpose {
+  INVESTIGATION
+  FORENSIC_EXAMINATION
+  COURT_FILING
+  LEGAL_REVIEW
+  EVIDENCE_VERIFICATION
+  ADMINISTRATIVE_REVIEW
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Access
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   @default("AGENCY")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  cases Case[]
+
+  @@map("organizations")
+}
+
+model User {
+  id                 String     @id @default(uuid())
+  organizationId     String
+  email              String     @unique
+  fullName           String
+  officialIdentifier String?
+  department         String?
+  passwordHash       String
+  mfaEnabled         Boolean    @default(false)
+  status             UserStatus @default(ACTIVE)
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  userRoles              UserRole[]
+  sessions               Session[]
+  investigatingCases     Case[]               @relation("InvestigatingOfficer")
+  caseAssignments        CaseAssignment[]
+  casePermissions        CasePermission[]     @relation("CasePermissionUser")
+  documentPermissions    DocumentPermission[] @relation("DocumentPermissionUser")
+  uploadedVersions       DocumentVersion[]
+  collectedEvidence      Evidence[]           @relation("EvidenceCollectedBy")
+  custodianOfEvidence    Evidence[]           @relation("EvidenceCurrentCustodian")
+  custodyEventsFrom      CustodyEvent[]       @relation("CustodyFromUser")
+  custodyEventsTo        CustodyEvent[]       @relation("CustodyToUser")
+  custodyEventsActed     CustodyEvent[]       @relation("CustodyActor")
+  registeredEvidence     Evidence[]           @relation("EvidenceRegisteredBy")
+  transfersFrom          EvidenceTransfer[]   @relation("TransferFrom")
+  transfersTo            EvidenceTransfer[]   @relation("TransferTo")
+  transfersInitiated     EvidenceTransfer[]   @relation("TransferInitiatedBy")
+  accessRequestsMade     AccessRequest[]      @relation("AccessRequestedBy")
+  accessRequestsReviewed AccessRequest[]      @relation("AccessReviewedBy")
+  auditEvents            AuditEvent[]
+  notifications          Notification[]
+  securityEvents         SecurityEvent[]
+  aiJobsRequested        AiProcessingJob[]
+  signatures             DigitalSignature[]
+  piiScansRequested      PiiScan[]
+  derivativesCreated     DocumentDerivative[]
+  sharesRequested        DocumentShare[]      @relation("ShareRequestedBy")
+  sharesReceived         DocumentShare[]      @relation("ShareRecipient")
+  sharesReviewed         DocumentShare[]      @relation("ShareReviewedBy")
+  sharesRevoked          DocumentShare[]      @relation("ShareRevokedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g. INVESTIGATOR, FORENSIC_OFFICER
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  casePermissions CasePermission[] @relation("CasePermissionRole")
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique // e.g. document.upload
+  resource    String
+  action      String
+  description String?
+
+  rolePermissions     RolePermission[]
+  casePermissions     CasePermission[]
+  documentPermissions DocumentPermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String
+  issuedAt   DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ipMetadata String?
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Case classification
+// ---------------------------------------------------------------------------
+
+model CaseCategory {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  name        String
+  description String?
+  sortOrder   Int     @default(0)
+
+  types CaseType[]
+  cases Case[]
+
+  @@map("case_categories")
+}
+
+model CaseType {
+  id         String @id @default(uuid())
+  categoryId String
+  key        String
+  name       String
+  sortOrder  Int    @default(0)
+
+  category CaseCategory @relation(fields: [categoryId], references: [id])
+  cases    Case[]
+
+  @@unique([categoryId, key])
+  @@map("case_types")
+}
+
+// ---------------------------------------------------------------------------
+// Cases
+// ---------------------------------------------------------------------------
+
+model Case {
+  id                     String               @id @default(uuid())
+  caseNumber             String               @unique
+  title                  String
+  categoryId             String
+  typeId                 String
+  court                  String
+  jurisdiction           String
+  status                 CaseStatus           @default(ACTIVE)
+  priority               CasePriority         @default(MEDIUM)
+  confidentiality        ConfidentialityLevel @default(INTERNAL)
+  investigatingOfficerId String?
+  organizationId         String
+  description            String
+  openedAt               DateTime             @default(now())
+  lastActivityAt         DateTime             @default(now())
+  createdBy              String
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  deletedAt              DateTime?
+
+  category             CaseCategory @relation(fields: [categoryId], references: [id])
+  type                 CaseType     @relation(fields: [typeId], references: [id])
+  organization         Organization @relation(fields: [organizationId], references: [id])
+  investigatingOfficer User?        @relation("InvestigatingOfficer", fields: [investigatingOfficerId], references: [id])
+
+  assignments    CaseAssignment[]
+  permissions    CasePermission[]
+  tags           CaseTag[]
+  documents      Document[]
+  evidence       Evidence[]
+  accessRequests AccessRequest[]
+  auditEvents    AuditEvent[]
+  securityEvents SecurityEvent[]
+  notifications  Notification[]
+  documentShares DocumentShare[]
+
+  @@index([status])
+  @@index([priority])
+  @@map("cases")
+}
+
+model CaseAssignment {
+  id         String   @id @default(uuid())
+  caseId     String
+  userId     String
+  roleOnCase String
+  assignedAt DateTime @default(now())
+  assignedBy String
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@map("case_assignments")
+}
+
+model CasePermission {
+  id           String    @id @default(uuid())
+  caseId       String
+  userId       String?
+  roleId       String?
+  permissionId String
+  grantedBy    String
+  grantedAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+
+  case       Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user       User?      @relation("CasePermissionUser", fields: [userId], references: [id])
+  role       Role?      @relation("CasePermissionRole", fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@index([caseId, userId])
+  @@map("case_permissions")
+}
+
+model CaseTag {
+  id     String @id @default(uuid())
+  caseId String
+  tag    String
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, tag])
+  @@map("case_tags")
+}
+
+// ---------------------------------------------------------------------------
+// Documents
+// ---------------------------------------------------------------------------
+
+model Document {
+  id                String               @id @default(uuid())
+  documentNumber    String               @unique
+  caseId            String
+  type              String
+  title             String
+  description       String?
+  confidentiality   ConfidentialityLevel @default(INTERNAL)
+  retentionPolicyId String?
+  retainUntil       DateTime?
+  legalHold         Boolean              @default(false)
+  status            DocumentStatus       @default(REGISTERED)
+  currentVersionId  String?
+  createdBy         String
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime?
+
+  case            Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  retentionPolicy RetentionPolicy?       @relation(fields: [retentionPolicyId], references: [id])
+  versions        DocumentVersion[]      @relation("DocumentToVersions")
+  permissions     DocumentPermission[]
+  tags            DocumentTag[]
+  signatures      DigitalSignature[]
+  aiJobs          AiProcessingJob[]
+  auditEvents     AuditEvent[]
+  piiScans        PiiScan[]
+  derivatives     DocumentDerivative[]
+  shares          DocumentShare[]
+  evidence        Evidence[]
+  intelligence    DocumentIntelligence[]
+
+  @@index([caseId])
+  @@index([caseId, type])
+  @@index([createdAt])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id              String          @id @default(uuid())
+  documentId      String
+  versionNumber   Int
+  fileName        String
+  fileSize        Int
+  mimeType        String
+  sha256Hash      String
+  storageProvider String
+  storageKey      String
+  changeNote      String?
+  integrityStatus IntegrityStatus @default(VERIFIED)
+  lastVerifiedAt  DateTime?
+  uploadedBy      String
+  uploadedAt      DateTime        @default(now())
+
+  document     Document              @relation("DocumentToVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  uploader     User                  @relation(fields: [uploadedBy], references: [id])
+  signatures   DigitalSignature[]
+  piiScans     PiiScan[]
+  derivatives  DocumentDerivative[]
+  shares       DocumentShare[]
+  evidence     Evidence[]
+  intelligence DocumentIntelligence?
+
+  @@unique([documentId, versionNumber])
+  @@map("document_versions")
+}
+
+model DocumentPermission {
+  id           String    @id @default(uuid())
+  documentId   String
+  userId       String?
+  roleId       String?
+  permissionId String
+  grantedBy    String
+  grantedAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+
+  document   Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User?      @relation("DocumentPermissionUser", fields: [userId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@index([documentId, userId])
+  @@map("document_permissions")
+}
+
+model DocumentTag {
+  id         String @id @default(uuid())
+  documentId String
+  tag        String
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, tag])
+  @@map("document_tags")
+}
+
+model RetentionPolicy {
+  id                   String   @id @default(uuid())
+  name                 String
+  description          String?
+  defaultRetentionDays Int?
+  allowsLegalHold      Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  documents Document[]
+
+  @@map("retention_policies")
+}
+
+model DigitalSignature {
+  id                   String          @id @default(uuid())
+  documentId           String
+  versionId            String
+  signerUserId         String?
+  status               SignatureStatus @default(NOT_SIGNED)
+  certificateReference String?
+  algorithm            String?
+  signedAt             DateTime?
+  verificationStatus   String?
+  createdAt            DateTime        @default(now())
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  signer   User?           @relation(fields: [signerUserId], references: [id])
+
+  @@map("digital_signatures")
+}
+
+// ---------------------------------------------------------------------------
+// Evidence & Chain of Custody
+// ---------------------------------------------------------------------------
+
+model Evidence {
+  id                 String               @id @default(uuid())
+  evidenceNumber     String               @unique
+  caseId             String
+  title              String
+  // Validated against the catalog in evidence.schemas.ts. Kept as a string
+  // (not a DB enum) so new evidence categories need no migration.
+  type               String
+  description        String
+  source             String?
+  collectedById      String
+  collectedAt        DateTime
+  location           String?
+  registeredById     String
+  currentCustodianId String?
+  status             EvidenceStatus       @default(REGISTERED)
+  confidentiality    ConfidentialityLevel @default(INTERNAL)
+  notes              String?
+
+  // Digital evidence references an existing immutable document version —
+  // the bytes stay in the storage layer and are never copied here.
+  originalDocumentId String?
+  originalVersionId  String?
+  // SHA-256 recalculated from storage at registration / last verification.
+  originalHash       String?
+  currentHash        String?
+  integrityStatus    IntegrityStatus?
+  lastVerifiedAt     DateTime?
+  // Legacy, unused: evidence content is always referenced via a document
+  // version (see docs/database.md §Evidence).
+  storageKey         String?
+
+  // Head of the hash-linked custody chain — lets verification detect a
+  // deleted trailing event, not only edited ones.
+  custodyHeadHash   String?
+  custodyEventCount Int       @default(0)
+  submittedAt       DateTime?
+  lastActivityAt    DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  case             Case               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  collectedBy      User               @relation("EvidenceCollectedBy", fields: [collectedById], references: [id])
+  registeredBy     User               @relation("EvidenceRegisteredBy", fields: [registeredById], references: [id])
+  currentCustodian User?              @relation("EvidenceCurrentCustodian", fields: [currentCustodianId], references: [id])
+  originalDocument Document?          @relation(fields: [originalDocumentId], references: [id])
+  originalVersion  DocumentVersion?   @relation(fields: [originalVersionId], references: [id])
+  custodyEvents    CustodyEvent[]
+  transfers        EvidenceTransfer[]
+  auditEvents      AuditEvent[]
+
+  @@index([caseId])
+  @@index([caseId, status])
+  @@index([currentCustodianId])
+  @@index([originalDocumentId])
+  @@map("evidence")
+}
+
+// One entry in an evidence item's hash-linked custody timeline. Rows are
+// append-only: eventHash = SHA-256(previousEventHash + canonical event
+// data), see backend/src/modules/evidence/custody-chain.ts. This is an
+// application-level tamper-evidence mechanism, not a blockchain.
+model CustodyEvent {
+  id                String        @id @default(uuid())
+  evidenceId        String
+  sequence          Int
+  fromUserId        String?
+  toUserId          String?
+  action            CustodyAction
+  reason            String
+  notes             String?
+  location          String?
+  actorId           String
+  organizationId    String
+  transferId        String?
+  // Evidence content hash known at the time of the event (if digital).
+  hashAtEvent       String?
+  // Server-side timestamp — never taken from the client.
+  occurredAt        DateTime      @default(now())
+  previousEventHash String?
+  eventHash         String?
+
+  evidence Evidence          @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  fromUser User?             @relation("CustodyFromUser", fields: [fromUserId], references: [id])
+  toUser   User?             @relation("CustodyToUser", fields: [toUserId], references: [id])
+  actor    User              @relation("CustodyActor", fields: [actorId], references: [id])
+  transfer EvidenceTransfer? @relation(fields: [transferId], references: [id])
+
+  @@unique([evidenceId, sequence])
+  @@index([evidenceId, occurredAt])
+  @@index([actorId])
+  @@map("custody_events")
+}
+
+// A custody hand-over. Custody only moves to the recipient once they
+// accept (RECEIVED); until then the evidence is TRANSFERRED (pending).
+model EvidenceTransfer {
+  id              String                 @id @default(uuid())
+  evidenceId      String
+  fromCustodianId String
+  toCustodianId   String
+  initiatedById   String
+  reason          String
+  notes           String?
+  status          EvidenceTransferStatus @default(PENDING)
+  // Status to restore if the transfer is rejected/cancelled, and to keep
+  // (e.g. SEALED) once it is accepted.
+  previousStatus  EvidenceStatus
+  responseNote    String?
+  initiatedAt     DateTime               @default(now())
+  respondedAt     DateTime?
+
+  evidence      Evidence       @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  fromCustodian User           @relation("TransferFrom", fields: [fromCustodianId], references: [id])
+  toCustodian   User           @relation("TransferTo", fields: [toCustodianId], references: [id])
+  initiatedBy   User           @relation("TransferInitiatedBy", fields: [initiatedById], references: [id])
+  custodyEvents CustodyEvent[]
+
+  @@index([evidenceId, status])
+  @@index([toCustodianId, status])
+  @@map("evidence_transfers")
+}
+
+// ---------------------------------------------------------------------------
+// Access Requests
+// ---------------------------------------------------------------------------
+
+model AccessRequest {
+  id            String              @id @default(uuid())
+  caseId        String
+  documentId    String?
+  requestedById String
+  permissionKey String
+  reason        String
+  durationDays  Int?
+  status        AccessRequestStatus @default(PENDING)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  expiresAt     DateTime?
+  createdAt     DateTime            @default(now())
+
+  case        Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("AccessRequestedBy", fields: [requestedById], references: [id])
+  reviewedBy  User? @relation("AccessReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([caseId, status])
+  @@map("access_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Audit, Notifications, Security
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id             String      @id @default(uuid())
+  actorId        String?
+  actorRole      String?
+  action         String
+  resource       String
+  caseId         String?
+  documentId     String?
+  evidenceId     String?
+  // Tenant of the event, derived server-side (case org, else actor org).
+  organizationId String?
+  result         AuditResult @default(SUCCESS)
+  reason         String?
+  ipMetadata     String?
+  // Safe, structured context (purpose, recipient user ID, derivative ID,
+  // finding counts...). Sanitized by AuditService — never raw PII.
+  metadata       Json?
+  requestId      String
+  occurredAt     DateTime    @default(now())
+
+  actor    User?     @relation(fields: [actorId], references: [id])
+  case     Case?     @relation(fields: [caseId], references: [id])
+  document Document? @relation(fields: [documentId], references: [id])
+  evidence Evidence? @relation(fields: [evidenceId], references: [id])
+
+  @@index([caseId, occurredAt])
+  @@index([actorId, occurredAt])
+  @@index([evidenceId, occurredAt])
+  @@index([organizationId, occurredAt])
+  @@index([action])
+  @@map("audit_events")
+}
+
+model Notification {
+  id                String           @id @default(uuid())
+  userId            String
+  type              NotificationType
+  title             String
+  body              String
+  relatedCaseId     String?
+  relatedDocumentId String?
+  relatedEvidenceId String?
+  isRead            Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relatedCase Case? @relation(fields: [relatedCaseId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model SecurityEvent {
+  id         String            @id @default(uuid())
+  type       SecurityEventType
+  userId     String?
+  caseId     String?
+  documentId String?
+  severity   SecuritySeverity  @default(MEDIUM)
+  detail     String
+  occurredAt DateTime          @default(now())
+  resolvedAt DateTime?
+
+  user User? @relation(fields: [userId], references: [id])
+  case Case? @relation(fields: [caseId], references: [id])
+
+  @@index([type, occurredAt])
+  @@map("security_events")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — PII scanning, document derivatives, controlled sharing
+// (see docs/security-architecture.md §PII Protection and §Controlled Sharing)
+// ---------------------------------------------------------------------------
+
+// One PII scan of one immutable document version. Stores only safe
+// metadata — the raw detected values are never persisted.
+model PiiScan {
+  id            String        @id @default(uuid())
+  documentId    String
+  versionId     String
+  status        PiiScanStatus @default(RUNNING)
+  provider      String
+  textLayer     Boolean       @default(false)
+  pageCount     Int?
+  findingCount  Int           @default(0)
+  limitations   Json?
+  statusReason  String?
+  requestedById String
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+
+  document    Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version     DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  requestedBy User            @relation(fields: [requestedById], references: [id])
+  findings    PiiFinding[]
+
+  @@index([documentId, startedAt])
+  @@map("pii_scans")
+}
+
+model PiiFinding {
+  id              String        @id @default(uuid())
+  scanId          String
+  type            PiiType
+  confidence      PiiConfidence
+  pageNumber      Int?
+  startOffset     Int
+  endOffset       Int
+  maskedPreview   String
+  detectionMethod String
+  // Keyed HMAC of the normalized value: lets redaction confirm it is
+  // removing exactly the reviewed finding without storing the value.
+  fingerprint     String
+
+  scan PiiScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@map("pii_findings")
+}
+
+// A generated copy of a document version (redacted and/or watermarked).
+// The source DocumentVersion object is never modified.
+model DocumentDerivative {
+  id                 String           @id @default(uuid())
+  documentId         String
+  sourceVersionId    String
+  // Set when this derivative was produced from another derivative
+  // (e.g. a watermark applied on top of a redacted copy).
+  parentDerivativeId String?
+  type               DerivativeType
+  status             DerivativeStatus @default(PENDING)
+  statusReason       String?
+  storageProvider    String?
+  storageKey         String?
+  fileName           String?
+  mimeType           String?
+  fileSize           Int?
+  sha256Hash         String?
+  piiScanId          String?
+  redactionMetadata  Json?
+  watermarkMetadata  Json?
+  shareId            String?
+  createdById        String
+  createdAt          DateTime         @default(now())
+
+  document          Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sourceVersion     DocumentVersion      @relation(fields: [sourceVersionId], references: [id], onDelete: Cascade)
+  parent            DocumentDerivative?  @relation("DerivativeParent", fields: [parentDerivativeId], references: [id])
+  children          DocumentDerivative[] @relation("DerivativeParent")
+  share             DocumentShare?       @relation("ShareDeliveredCopies", fields: [shareId], references: [id])
+  sharesUsingAsBase DocumentShare[]      @relation("ShareBaseDerivative")
+  createdBy         User                 @relation(fields: [createdById], references: [id])
+
+  @@index([documentId, createdAt])
+  @@index([sourceVersionId])
+  @@index([shareId])
+  @@map("document_derivatives")
+}
+
+// Controlled, purpose-bound, time-limited sharing of ONE document version
+// with ONE recipient. A share never grants access to the original object:
+// the recipient only ever receives a derivative produced for this share.
+model DocumentShare {
+  id                    String              @id @default(uuid())
+  documentId            String
+  caseId                String
+  sourceVersionId       String
+  requestedById         String
+  recipientUserId       String
+  recipientOrganization String?
+  purpose               SharePurpose
+  purposeNote           String?
+  startsAt              DateTime            @default(now())
+  expiresAt             DateTime
+  allowDownload         Boolean             @default(false)
+  applyRedaction        Boolean             @default(false)
+  // COMPLETED REDACTED derivative recipients receive (as the base for
+  // watermarking) when applyRedaction is true.
+  baseDerivativeId      String?
+  applyWatermark        Boolean             @default(true)
+  requireApproval       Boolean             @default(true)
+  status                AccessRequestStatus @default(PENDING)
+  reviewedById          String?
+  reviewedAt            DateTime?
+  reviewNote            String?
+  revokedById           String?
+  revokedAt             DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  document        Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  case            Case                 @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  sourceVersion   DocumentVersion      @relation(fields: [sourceVersionId], references: [id], onDelete: Cascade)
+  baseDerivative  DocumentDerivative?  @relation("ShareBaseDerivative", fields: [baseDerivativeId], references: [id])
+  requestedBy     User                 @relation("ShareRequestedBy", fields: [requestedById], references: [id])
+  recipient       User                 @relation("ShareRecipient", fields: [recipientUserId], references: [id])
+  reviewedBy      User?                @relation("ShareReviewedBy", fields: [reviewedById], references: [id])
+  revokedBy       User?                @relation("ShareRevokedBy", fields: [revokedById], references: [id])
+  deliveredCopies DocumentDerivative[] @relation("ShareDeliveredCopies")
+
+  @@index([recipientUserId, status])
+  @@index([documentId, status])
+  @@index([caseId])
+  @@map("document_shares")
+}
+
+// ---------------------------------------------------------------------------
+// AI
+// ---------------------------------------------------------------------------
+
+model AiProcessingJob {
+  id          String      @id @default(uuid())
+  documentId  String
+  jobType     AiJobType
+  status      AiJobStatus @default(QUEUED)
+  result      Json?
+  requestedBy String
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+
+  // Phase 4 pipeline tracking (null for the legacy synchronous jobs).
+  versionId      String?
+  intelligenceId String?
+  provider       String?
+  attempt        Int       @default(1)
+  startedAt      DateTime?
+  // Safe, content-free failure description (never document text or PII).
+  error          String?
+
+  document     Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  requester    User                  @relation(fields: [requestedBy], references: [id])
+  intelligence DocumentIntelligence? @relation(fields: [intelligenceId], references: [id], onDelete: SetNull)
+
+  @@index([documentId, createdAt])
+  @@index([intelligenceId])
+  @@map("ai_processing_jobs")
+}
+
+// Phase 4 — the derived, searchable representation of ONE immutable document
+// version: extracted/OCR text, AI suggestions and their human review state.
+// The original file stays untouched in object storage; this row only holds
+// derived data. `maskedText` is PII-MASKED before it is stored, so neither
+// search, snippets nor AI prompts can leak raw PII values from it.
+// See docs/document-processing.md and docs/search-architecture.md.
+model DocumentIntelligence {
+  id         String @id @default(uuid())
+  documentId String
+  versionId  String @unique
+  // Denormalized from the document for index-friendly scoping.
+  caseId     String
+
+  processingStatus DocumentProcessingStatus @default(QUEUED)
+  processingError  String?
+  attempts         Int                      @default(0)
+  requestedById    String?
+  queuedAt         DateTime                 @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+
+  // Text extraction / OCR
+  extractionStatus      TextExtractionStatus @default(QUEUED)
+  textSource            TextSource?
+  extractionProvider    String?
+  extractionConfidence  Float?
+  language              String?
+  pageCount             Int?
+  characterCount        Int?
+  extractionLimitations Json?
+  extractionError       String?
+  maskedText            String?
+
+  // Classification (AI suggestion → human review)
+  classificationStatus     IntelligenceStepStatus   @default(PENDING)
+  classificationReason     String?
+  suggestedType            String?
+  classificationConfidence Float?
+  classificationProvider   String?
+  classificationReview     IntelligenceReviewStatus @default(PENDING_REVIEW)
+  classificationProvenance AiProvenance?
+  confirmedType            String?
+  classificationReviewedBy String?
+  classificationReviewedAt DateTime?
+
+  // Metadata extraction (AI suggestion → human review)
+  metadataStatus     IntelligenceStepStatus   @default(PENDING)
+  metadataReason     String?
+  extractedMetadata  Json?
+  metadataProvider   String?
+  metadataReview     IntelligenceReviewStatus @default(PENDING_REVIEW)
+  metadataProvenance AiProvenance?
+  confirmedMetadata  Json?
+  metadataReviewedBy String?
+  metadataReviewedAt DateTime?
+  // Flattened metadata values, weighted into the search vector.
+  metadataText       String?
+
+  // Summary (always AI-generated, non-authoritative)
+  summaryStatus      IntelligenceStepStatus @default(PENDING)
+  summaryReason      String?
+  summary            String?
+  summaryProvider    String?
+  summaryGeneratedAt DateTime?
+
+  // PII detection over the extracted text (counts only — values never stored)
+  piiStatus       IntelligenceStepStatus @default(PENDING)
+  piiFindingCount Int?
+  piiTypeCounts   Json?
+
+  // Search index. `searchVector` is maintained by a BEFORE INSERT/UPDATE
+  // trigger (see the Phase 4 migration) from metadataText (weight A) and
+  // maskedText (weight B); Prisma never writes it.
+  indexStatus  IntelligenceStepStatus   @default(PENDING)
+  indexedAt    DateTime?
+  searchVector Unsupported("tsvector")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version  DocumentVersion   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  jobs     AiProcessingJob[]
+
+  @@index([documentId])
+  @@index([caseId])
+  @@index([suggestedType])
+  @@index([processingStatus])
+  @@index([createdAt])
+  @@index([searchVector], type: Gin)
+  @@map("document_intelligence")
+}

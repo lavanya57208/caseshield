@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <!-- Case Shield login backdrop: stylised dusk view of a domed institutional district. Local asset, no external dependency. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A1D36"/>
+      <stop offset="0.35" stop-color="#193A5E"/>
+      <stop offset="0.58" stop-color="#355D86"/>
+      <stop offset="0.68" stop-color="#5A7392"/>
+      <stop offset="0.74" stop-color="#9C8C86"/>
+    </linearGradient>
+    <radialGradient id="horizonGlow" cx="0.5" cy="0.68" r="0.45">
+      <stop offset="0" stop-color="#E7A765" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#C98A5A" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#C98A5A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2C4865"/>
+      <stop offset="1" stop-color="#172C44"/>
+    </linearGradient>
+    <linearGradient id="stoneFar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A5877"/>
+      <stop offset="1" stop-color="#22395378"/>
+    </linearGradient>
+    <linearGradient id="dome" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1E3652"/>
+      <stop offset="0.45" stop-color="#4A6887"/>
+      <stop offset="0.6" stop-color="#5F7B98"/>
+      <stop offset="1" stop-color="#1E3652"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A2F46"/>
+      <stop offset="1" stop-color="#050E18"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3B4F66"/>
+      <stop offset="1" stop-color="#0C1A28"/>
+    </linearGradient>
+    <radialGradient id="lamp">
+      <stop offset="0" stop-color="#FFE3A8" stop-opacity="1"/>
+      <stop offset="0.25" stop-color="#F6C067" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#F6C067" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="windows" width="28" height="34" patternUnits="userSpaceOnUse">
+      <rect x="9" y="8" width="8" height="14" rx="1" fill="#F2C27A" opacity="0.75"/>
+    </pattern>
+    <pattern id="windowsDim" width="28" height="34" patternUnits="userSpaceOnUse">
+      <rect x="9" y="8" width="8" height="14" rx="1" fill="#F2C27A" opacity="0.28"/>
+    </pattern>
+    <pattern id="columns" width="22" height="80" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="22" height="80" fill="#E9B573" opacity="0.5"/>
+      <rect x="0" y="0" width="9" height="80" fill="#1A3049"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#050E18" stop-opacity="0"/>
+      <stop offset="1" stop-color="#050E18" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#horizonGlow)"/>
+  <g fill="#FFFFFF">
+    <circle cx="210" cy="90" r="1.2" opacity="0.7"/><circle cx="480" cy="160" r="1" opacity="0.5"/>
+    <circle cx="760" cy="70" r="1.3" opacity="0.6"/><circle cx="1090" cy="120" r="1" opacity="0.5"/>
+    <circle cx="1350" cy="60" r="1.4" opacity="0.7"/><circle cx="1620" cy="150" r="1" opacity="0.5"/>
+    <circle cx="1790" cy="80" r="1.2" opacity="0.6"/><circle cx="930" cy="210" r="0.9" opacity="0.4"/>
+    <circle cx="330" cy="250" r="0.9" opacity="0.4"/><circle cx="1500" cy="240" r="0.9" opacity="0.4"/>
+  </g>
+
+  <!-- Distant tree line -->
+  <path d="M0 700 Q60 680 120 694 T260 688 T420 696 T600 684 T780 694 T960 686 T1140 694 T1320 684 T1500 694 T1680 686 T1920 694 V740 H0Z" fill="#132840"/>
+
+  <!-- Central domed building -->
+  <g>
+    <!-- side wings -->
+    <rect x="560" y="628" width="800" height="92" fill="url(#stoneFar)"/>
+    <rect x="560" y="620" width="800" height="10" fill="#4A6887"/>
+    <rect x="580" y="648" width="760" height="60" fill="url(#windowsDim)"/>
+    <!-- chhatris on the wings -->
+    <g fill="#34506F">
+      <rect x="610" y="598" width="26" height="22"/><path d="M604 600 Q623 578 642 600Z"/>
+      <rect x="1284" y="598" width="26" height="22"/><path d="M1278 600 Q1297 578 1316 600Z"/>
+      <rect x="720" y="604" width="20" height="16"/><path d="M715 606 Q730 590 745 606Z"/>
+      <rect x="1180" y="604" width="20" height="16"/><path d="M1175 606 Q1190 590 1205 606Z"/>
+    </g>
+    <!-- central block & colonnade -->
+    <rect x="780" y="600" width="360" height="120" fill="url(#stone)"/>
+    <rect x="770" y="592" width="380" height="12" fill="#56738F"/>
+    <rect x="800" y="622" width="320" height="80" fill="url(#columns)"/>
+    <rect x="790" y="700" width="340" height="20" fill="#223B56"/>
+    <!-- drum -->
+    <rect x="870" y="530" width="180" height="64" fill="#2E4B69"/>
+    <rect x="862" y="524" width="196" height="8" fill="#56738F"/>
+    <rect x="880" y="542" width="160" height="44" fill="url(#windows)" opacity="0.8"/>
+    <!-- dome -->
+    <path d="M872 526 C872 440 1048 440 1048 526Z" fill="url(#dome)"/>
+    <path d="M872 526 C872 440 1048 440 1048 526" fill="none" stroke="#7F98B1" stroke-width="1.5" opacity="0.6"/>
+    <rect x="952" y="448" width="16" height="16" fill="#4A6887"/>
+    <path d="M948 450 Q960 428 972 450Z" fill="#5F7B98"/>
+    <rect x="958.5" y="410" width="3" height="22" fill="#D6A64F"/>
+    <!-- flag -->
+    <rect x="961.5" y="410" width="22" height="5" fill="#E88A3A" opacity="0.85"/>
+    <rect x="961.5" y="415" width="22" height="5" fill="#F4F4F4" opacity="0.85"/>
+    <rect x="961.5" y="420" width="22" height="5" fill="#2F8A3A" opacity="0.85"/>
+    <!-- warm uplight on the facade -->
+    <ellipse cx="960" cy="712" rx="220" ry="40" fill="#F6C067" opacity="0.12"/>
+  </g>
+
+  <!-- Left secretariat block (perspective) -->
+  <g>
+    <polygon points="0,520 540,640 540,760 0,820" fill="url(#stone)"/>
+    <polygon points="0,510 540,634 540,642 0,522" fill="#4A6887"/>
+    <clipPath id="leftClip"><polygon points="20,560 520,662 520,748 20,796"/></clipPath>
+    <g clip-path="url(#leftClip)">
+      <rect x="0" y="540" width="540" height="260" fill="url(#windows)"/>
+    </g>
+    <!-- tower with dome -->
+    <rect x="250" y="480" width="70" height="110" fill="#29445F"/>
+    <rect x="244" y="474" width="82" height="8" fill="#56738F"/>
+    <path d="M250 476 C250 420 320 420 320 476Z" fill="url(#dome)"/>
+    <rect x="283" y="410" width="4" height="18" fill="#D6A64F"/>
+    <rect x="262" y="500" width="46" height="70" fill="url(#windows)" opacity="0.9"/>
+  </g>
+
+  <!-- Right secretariat block (perspective) -->
+  <g>
+    <polygon points="1920,520 1380,640 1380,760 1920,820" fill="url(#stone)"/>
+    <polygon points="1920,510 1380,634 1380,642 1920,522" fill="#4A6887"/>
+    <clipPath id="rightClip"><polygon points="1900,560 1400,662 1400,748 1900,796"/></clipPath>
+    <g clip-path="url(#rightClip)">
+      <rect x="1380" y="540" width="540" height="260" fill="url(#windows)"/>
+    </g>
+    <rect x="1600" y="480" width="70" height="110" fill="#29445F"/>
+    <rect x="1594" y="474" width="82" height="8" fill="#56738F"/>
+    <path d="M1600 476 C1600 420 1670 420 1670 476Z" fill="url(#dome)"/>
+    <rect x="1633" y="410" width="4" height="18" fill="#D6A64F"/>
+    <rect x="1612" y="500" width="46" height="70" fill="url(#windows)" opacity="0.9"/>
+  </g>
+
+  <!-- Ground & avenue -->
+  <rect x="0" y="720" width="1920" height="360" fill="url(#ground)"/>
+  <polygon points="880,720 1040,720 1500,1080 420,1080" fill="url(#road)"/>
+  <polygon points="956,720 964,720 972,1080 948,1080" fill="#D6A64F" opacity="0.18"/>
+
+  <!-- Avenue lamps -->
+  <g>
+    <g fill="#0B1A2A">
+      <rect x="846" y="712" width="2" height="18"/><rect x="1072" y="712" width="2" height="18"/>
+      <rect x="784" y="722" width="3" height="30"/><rect x="1133" y="722" width="3" height="30"/>
+      <rect x="690" y="736" width="4" height="52"/><rect x="1226" y="736" width="4" height="52"/>
+      <rect x="540" y="756" width="6" height="92"/><rect x="1374" y="756" width="6" height="92"/>
+      <rect x="290" y="790" width="9" height="170"/><rect x="1621" y="790" width="9" height="170"/>
+    </g>
+    <g fill="url(#lamp)">
+      <circle cx="847" cy="712" r="10"/><circle cx="1073" cy="712" r="10"/>
+      <circle cx="785.5" cy="721" r="16"/><circle cx="1134.5" cy="721" r="16"/>
+      <circle cx="692" cy="734" r="26"/><circle cx="1228" cy="734" r="26"/>
+      <circle cx="543" cy="752" r="42"/><circle cx="1377" cy="752" r="42"/>
+      <circle cx="294.5" cy="784" r="70"/><circle cx="1625.5" cy="784" r="70"/>
+    </g>
+  </g>
+
+  <!-- Foreground architectural element: sandstone column & balustrade (left) -->
+  <g>
+    <rect x="0" y="860" width="1920" height="220" fill="url(#fade)"/>
+    <rect x="0" y="930" width="760" height="18" fill="#0A1726"/>
+    <g fill="#0A1726">
+      <rect x="20" y="948" width="14" height="80"/><rect x="70" y="948" width="14" height="80"/>
+      <rect x="120" y="948" width="14" height="80"/><rect x="170" y="948" width="14" height="80"/>
+      <rect x="220" y="948" width="14" height="80"/><rect x="270" y="948" width="14" height="80"/>
+      <rect x="320" y="948" width="14" height="80"/><rect x="370" y="948" width="14" height="80"/>
+      <rect x="420" y="948" width="14" height="80"/><rect x="470" y="948" width="14" height="80"/>
+      <rect x="520" y="948" width="14" height="80"/><rect x="570" y="948" width="14" height="80"/>
+      <rect x="620" y="948" width="14" height="80"/><rect x="670" y="948" width="14" height="80"/>
+      <rect x="720" y="948" width="14" height="80"/>
+    </g>
+    <rect x="0" y="1024" width="1920" height="56" fill="#050E18"/>
+    <!-- column -->
+    <rect x="0" y="0" width="110" height="1080" fill="#07121F"/>
+    <rect x="110" y="0" width="14" height="1080" fill="#0D1C2E"/>
+    <rect x="0" y="0" width="140" height="46" fill="#07121F"/>
+    <rect x="0" y="46" width="130" height="10" fill="#122740"/>
+    <rect x="124" y="0" width="3" height="1080" fill="#D6A64F" opacity="0.15"/>
+  </g>
+</svg>

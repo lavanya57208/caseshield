@@ -1,0 +1,12 @@
+CASE SHIELD - FICTIONAL DEMONSTRATION DOCUMENT
+================================================
+Document type: Court Filing
+Related case: CASE-2026-00435 - Disputed Title Transfer
+Generated: 2026-09-19T11:30:17.228Z
+
+This file is synthetic content created for the Case Shield prototype.
+It does not describe a real person, real investigation, or real court
+matter. It exists so the document management, versioning and SHA-256
+integrity verification workflows have something real to hash and check.
+
+--- END OF DEMONSTRATION DOCUMENT ---

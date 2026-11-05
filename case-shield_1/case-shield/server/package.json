@@ -1,0 +1,22 @@
+{
+  "name": "case-shield-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Case Shield API - zero runtime dependencies (Node built-ins + node:sqlite only). See README for why, and for the migration path to the real PostgreSQL + Google Cloud production stack.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"require('fs').mkdirSync('dist/db',{recursive:true}); require('fs').copyFileSync('src/db/schema.sql','dist/db/schema.sql')\"",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "seed:reset": "rm -f data/case-shield.db* && npm run build && node -e \"require('./dist/db/seed').seed()\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "typescript": "^5.5.4",
+    "tsx": "^4.16.2"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

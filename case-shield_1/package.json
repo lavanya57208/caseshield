@@ -1,0 +1,23 @@
+{
+  "name": "case-shield",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Secure Digital Legal & Investigation Document Management System (SIH prototype)",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build:backend": "npm run build --workspace backend",
+    "build:frontend": "npm run build --workspace frontend",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "test:backend": "npm run test --workspace backend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

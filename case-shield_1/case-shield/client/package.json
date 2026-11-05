@@ -1,0 +1,14 @@
+{
+  "name": "case-shield-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Case Shield frontend. Zero runtime dependencies: TypeScript compiled straight to native browser ES modules (no bundler), because this project was authored in a sandbox with no npm registry access. See README for the React + Vite + Tailwind migration path this was designed to map cleanly onto.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node build-static.cjs",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
